@@ -106,6 +106,7 @@ public class Configuration {
             readWriteLock.writeLock().lockInterruptibly();
 
             try {
+                //合并指定配置文件中的配置信息：相同属性，用指定配置文件中的值替换
                 merge(extProperties, this.allConfigs);
             } finally {
                 readWriteLock.writeLock().unlock();

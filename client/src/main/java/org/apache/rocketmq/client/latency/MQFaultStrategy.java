@@ -26,9 +26,20 @@ public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     private final LatencyFaultTolerance<String> latencyFaultTolerance = new LatencyFaultToleranceImpl();
 
+    /**
+     * 是否开启延迟规避机制
+     * RocketMQ 客户端内部在重试时会规避上一次发送失败的 Broker，如果开启延迟失败规避，则在未来的某一段时间内不向该 Broker 发送消息，
+     */
     private boolean sendLatencyFaultEnable = false;
+    /**
+     * 设置消息发送的最大延迟级别，默认值为 {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L}，个数与 notAvailableDuration 对应
+     */
 
     private long[] latencyMax = {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L};
+    /**
+     * 不可用的延迟数组，默认值为 {0L, 0L, 30000L, 60000L, 120000L, 180000L, 600000L}，即每次触发 Broker 的延迟时间是一个阶梯的，
+     * 会根据每次消息发送的延迟时间来选择在未来多久内不向该 Broker 发送消息。
+     */
     private long[] notAvailableDuration = {0L, 0L, 30000L, 60000L, 120000L, 180000L, 600000L};
 
     public long[] getNotAvailableDuration() {

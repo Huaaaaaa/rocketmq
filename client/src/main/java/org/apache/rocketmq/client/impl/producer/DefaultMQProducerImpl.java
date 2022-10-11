@@ -610,7 +610,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         this.makeSureStateOK();
         Validators.checkMessage(msg, this.defaultMQProducer);
         final long invokeID = random.nextLong();
+        //第一次发送开始时间
         long beginTimestampFirst = System.currentTimeMillis();
+        //本次发送时间
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
@@ -619,6 +621,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             MessageQueue mq = null;
             Exception exception = null;
             SendResult sendResult = null;
+            //总的发送次数=1+重试次数：如果是同步发送，重试次数为retryTimesWhenSendFailed，否则为0
             int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;
             int times = 0;
             String[] brokersSent = new String[timesTotal];
@@ -629,12 +632,15 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     mq = mqSelected;
                     brokersSent[times] = mq.getBrokerName();
                     try {
+                        //每次发送之前都更新本次发送时间
                         beginTimestampPrev = System.currentTimeMillis();
                         if (times > 0) {
                             //Reset topic with namespace during resend.
                             msg.setTopic(this.defaultMQProducer.withNamespace(msg.getTopic()));
                         }
+                        //总耗时=本次发送时间-首次发送时间
                         long costTime = beginTimestampPrev - beginTimestampFirst;
+                        //重试超时为所有发送次数执行之和，包括第一次执行时间
                         if (timeout < costTime) {
                             callTimeout = true;
                             break;

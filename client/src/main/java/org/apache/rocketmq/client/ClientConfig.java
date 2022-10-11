@@ -37,28 +37,58 @@ public class ClientConfig {
     public static final String SEND_MESSAGE_WITH_VIP_CHANNEL_PROPERTY = "com.rocketmq.sendMessageWithVIPChannel";
     public static final String DECODE_READ_BODY = "com.rocketmq.read.body";
     public static final String DECODE_DECOMPRESS_BODY = "com.rocketmq.decompress.body";
+    /**
+     * NameServer 的地址列表
+     */
     private String namesrvAddr = NameServerAddressUtils.getNameServerAddresses();
+    /**
+     * 客户端IP
+     */
     private String clientIP = RemotingUtil.getLocalAddress();
+    /**
+     * 客户端实例名称，是客户端标识 CID 的组成部分
+     */
     private String instanceName = System.getProperty("rocketmq.client.name", "DEFAULT");
+    /**
+     * 客户端 public 回调的线程池线程数量，默认为 CPU 核数，不建议改变该值
+     */
     private int clientCallbackExecutorThreads = Runtime.getRuntime().availableProcessors();
+    /**
+     * 客户端命名空间，从 4.5.1 版本被引入
+     */
     protected String namespace;
+    /**
+     * 是否初始化namespace，默认为false
+     */
     private boolean namespaceInitialized = false;
+    /**
+     * 访问渠道：本地或云
+     */
     protected AccessChannel accessChannel = AccessChannel.LOCAL;
 
     /**
      * Pulling topic information interval from the named server
+     * 从namesever获取topic的时间间隔，默认值 30s，就是 Producer、Consumer 会每隔 30s 向 NameServer 更新 Topic 的路由信息，该值不建议修改。
      */
     private int pollNameServerInterval = 1000 * 30;
     /**
      * Heartbeat interval in microseconds with message broker
+     * 客户端向 Broker 发送心跳包的时间间隔，默认为 30s，该值不建议修改。
      */
     private int heartbeatBrokerInterval = 1000 * 30;
     /**
      * Offset persistent interval for consumer
+     * 客户端持久化消息消费进度的间隔，默认为 5s，该值不建议修改。
      */
     private int persistConsumerOffsetInterval = 1000 * 5;
+    /**
+     * 当出现异常时重新拉取的延时
+     */
     private long pullTimeDelayMillsWhenException = 1000;
     private boolean unitMode = false;
+    /**
+     * 定义一个单元，主要用途：客户端 CID 的组成部分；如果获取 NameServer 的地址是通过 URL 进行动态更新的话，会将该值附加到当中，即可以区分不同的获取 NameServer 地址的服务
+     */
     private String unitName;
     private boolean decodeReadBody = Boolean.parseBoolean(System.getProperty(DECODE_READ_BODY, "true"));
     private boolean decodeDecompressBody = Boolean.parseBoolean(System.getProperty(DECODE_DECOMPRESS_BODY, "true"));

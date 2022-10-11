@@ -45,10 +45,12 @@ public class KVConfigManager {
     public void load() {
         String content = null;
         try {
+            //获取user.home/namesrv下的kvconfig.json文件并解析内容
             content = MixAll.file2String(this.namesrvController.getNamesrvConfig().getKvConfigPath());
         } catch (IOException e) {
             log.warn("Load KV config table exception", e);
         }
+        //当配置文件内容不为空时解析配置信息，加入配置表（HashMap）中
         if (content != null) {
             KVConfigSerializeWrapper kvConfigSerializeWrapper =
                 KVConfigSerializeWrapper.fromJson(content, KVConfigSerializeWrapper.class);

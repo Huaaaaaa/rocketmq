@@ -25,44 +25,68 @@ import org.apache.rocketmq.common.MixAll;
 
 public class NamesrvConfig {
 
+    /**
+     * RocketMQ主目录，默认用户主目录
+     */
     private String rocketmqHome = System.getProperty(MixAll.ROCKETMQ_HOME_PROPERTY, System.getenv(MixAll.ROCKETMQ_HOME_ENV));
+    /**
+     * kv配置文件路径，包含顺序消息主题的配置信息
+     */
     private String kvConfigPath = System.getProperty("user.home") + File.separator + "namesrv" + File.separator + "kvConfig.json";
+    /**
+     * NameServer配置文件路径，建议使用-c指定NameServer配置文件路径
+     */
     private String configStorePath = System.getProperty("user.home") + File.separator + "namesrv" + File.separator + "namesrv.properties";
     private String productEnvName = "center";
+    /**
+     * 是否支持集群测试，默认为false
+     */
     private boolean clusterTest = false;
+    /**
+     * 是否支持顺序消息，默认为false
+     */
     private boolean orderMessageEnable = false;
     private boolean returnOrderTopicConfigToBroker = true;
 
     /**
+     * 处理客户端请求的线程数
      * Indicates the nums of thread to handle client requests, like GET_ROUTEINTO_BY_TOPIC.
      */
     private int clientRequestThreadPoolNums = 8;
     /**
+     * 处理broker请求的线程数
      * Indicates the nums of thread to handle broker or operation requests, like REGISTER_BROKER.
      */
     private int defaultThreadPoolNums = 16;
     /**
+     * 处理客户端请求的线程池最大队列数，默认50000
      * Indicates the capacity of queue to hold client requests.
      */
     private int clientRequestThreadPoolQueueCapacity = 50000;
     /**
+     * 处理broker请求的线程池最大队列数，默认10000
      * Indicates the capacity of queue to hold broker or operation requests.
      */
     private int defaultThreadPoolQueueCapacity = 10000;
     /**
+     * 扫描未激活broker的时间间隔，默认5秒，即每过5秒就扫描一次未活跃的broker
      * Interval of periodic scanning for non-active broker;
      */
     private long scanNotActiveBrokerInterval = 5 * 1000;
 
+    /**
+     * 未注册的broker队列长度
+     */
     private int unRegisterBrokerQueueCapacity = 3000;
 
     /**
+     * 是否支持slave扮演（升级）为master
      * Support acting master or not.
-     *
+     * 当主节点下线之后从节点可以扮演主节点并支持以下操作
      * The slave can be an acting master when master node is down to support following operations:
-     * 1. support lock/unlock message queue operation.
-     * 2. support searchOffset, query maxOffset/minOffset operation.
-     * 3. support query earliest msg store time.
+     * 1. support lock/unlock message queue operation. 支持锁定/解锁消息队列
+     * 2. support searchOffset, query maxOffset/minOffset operation. 支持搜索消息位点、查询最小和最大消息位点
+     * 3. support query earliest msg store time. 支持查询最早的消息存储时间
      */
     private boolean supportActingMaster = false;
 

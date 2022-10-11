@@ -23,10 +23,10 @@ public class PermName {
     public static final int INDEX_PERM_INHERIT = 0;
 
 
-    public static final int PERM_PRIORITY = 0x1 << INDEX_PERM_PRIORITY;
-    public static final int PERM_READ = 0x1 << INDEX_PERM_READ;
-    public static final int PERM_WRITE = 0x1 << INDEX_PERM_WRITE;
-    public static final int PERM_INHERIT = 0x1 << INDEX_PERM_INHERIT;
+    public static final int PERM_PRIORITY = 0x1 << INDEX_PERM_PRIORITY;//1*8=8
+    public static final int PERM_READ = 0x1 << INDEX_PERM_READ;//1*4=4
+    public static final int PERM_WRITE = 0x1 << INDEX_PERM_WRITE;//1*2=2
+    public static final int PERM_INHERIT = 0x1 << INDEX_PERM_INHERIT;//1*1=1
 
     public static String perm2String(final int perm) {
         final StringBuilder sb = new StringBuilder("---");

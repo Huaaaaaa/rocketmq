@@ -81,6 +81,8 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      *
      * For non-transactional messages, it does not matter as long as it's unique per process. </p>
      *
+     * 发送者所属组，开源版本的 RocketMQ，发送者所属组主要的用途是事务消息，Broker 需要向消息发送者回查事务状态。
+     * 可以通过相关命令或 RocketMQ-Console 查看某一个 Topic 指定消费组的客户端
      * See <a href="http://rocketmq.apache.org/docs/core-concept/">core concepts</a> for more discussion.
      */
     private String producerGroup;
@@ -92,16 +94,22 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Number of queues to create per default topic.
+     * 通过生产者创建 Topic 时默认的队列数量。
      */
     private volatile int defaultTopicQueueNums = 4;
 
     /**
      * Timeout for sending messages.
+     * 消息发送默认超时时间，单位为毫秒。值得注意的是在 RocketMQ 4.3.0 版本之前，由于存在重试机制，设置的设计为单次重试的超时时间，
+     * 即如果设置重试次数为 3 次，则 DefaultMQProducer#send 方法可能会超过 9s 才返回；该问题在 RocketMQ 4.3.0 版本进行了优化，
+     * 设置的超时时间为总的超时时间，即如果超时时间设置 3s，重试次数设置为 10 次，可能不会重试 10 次，例如在重试到第 5 次的时候，
+     * 已经超过 3s 了，试图尝试第 6 次重试时会退出，抛出超时异常，停止重试。
      */
     private int sendMsgTimeout = 3000;
 
     /**
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
+     * 压缩的阈值，默认为 4k，即当消息的消息体超过 4k，则会使用 zip 对消息体进行压缩，会增加 Broker 端的 CPU 消耗，但能提高网络方面的开销。
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
@@ -109,6 +117,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
+     * 同步消息发送重试次数。RocketMQ 客户端内部在消息发送失败时默认会重试 2 次。请主要该参数与 sendMsgTimeout 会联合起来生效
      */
     private int retryTimesWhenSendFailed = 2;
 
@@ -116,16 +125,20 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
+     * 异步消息发送重试次数，默认为 2，即重试 2 次，通常情况下有三次机会。
      */
     private int retryTimesWhenSendAsyncFailed = 2;
 
     /**
      * Indicate whether to retry another broker on sending failure internally.
+     * 如果客户端收到的结果不是 SEND_OK，是否继续向另外一个 Broker 重试
      */
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
      * Maximum allowed message body size in bytes.
+     * 允许发送的最大消息体，默认为 4M，服务端（Broker）也有 maxMessageSize 这个参数的设置，
+     * 故客户端的设置不能超过服务端的配置，最佳实践为客户端的配置小于服务端的配置。
      */
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 

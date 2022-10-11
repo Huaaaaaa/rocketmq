@@ -101,27 +101,45 @@ public class NamesrvController {
     }
 
     public boolean initialize() {
+        //加载配置
         loadConfig();
+        //初始化网络信息
         initiateNetworkComponents();
+        //初始化线程池
         initiateThreadExecutors();
+        //注册处理器
         registerProcessor();
+        //启动定时任务
         startScheduleService();
+        //初始化SSL上下文
         initiateSslContext();
+        //初始化RPC钩子方法:方便在RPC接口调用前后执行一些逻辑
         initiateRpcHooks();
         return true;
     }
 
+    /**
+     * 1.获取user.home/namesrv下的kvconfig.json文件并解析内容
+     * 2.当配置文件内容不为空时解析配置信息并加入配置表（HashMap）中
+     */
     private void loadConfig() {
         this.kvConfigManager.load();
     }
 
+    /**
+     * 1.每隔5秒执行一次扫描下线broker的任务
+     * 2.每隔10分钟打印一次配置表
+     * 3.每隔1秒打印一次线程池中的队列信息
+     */
     private void startScheduleService() {
+        //每隔5秒执行一次扫描下线broker的任务
         this.scanExecutorService.scheduleAtFixedRate(NamesrvController.this.routeInfoManager::scanNotActiveBroker,
             5, this.namesrvConfig.getScanNotActiveBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        //每隔10分钟打印一次配置表
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.kvConfigManager::printAllPeriodically,
             1, 10, TimeUnit.MINUTES);
-
+        //每隔1秒打印一次线程池中的队列信息
         this.scheduledExecutorService.scheduleAtFixedRate(() -> {
             try {
                 NamesrvController.this.printWaterMark();
@@ -131,13 +149,24 @@ public class NamesrvController {
         }, 10, 1, TimeUnit.SECONDS);
     }
 
+    /**
+     * 1.根据NettyServerConfig配置初始化NettyServer
+     * 2.根据NettyClientConfig配置初始化NettyClient
+     */
     private void initiateNetworkComponents() {
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
         this.remotingClient = new NettyRemotingClient(this.nettyClientConfig);
     }
 
+
+    /**
+     * 1.初始化处理broker请求的线程池
+     * 2.初始化处理客户端请求的线程池
+     */
     private void initiateThreadExecutors() {
+        //初始化处理broker请求的线程池队列数，默认10000
         this.defaultThreadPoolQueue = new LinkedBlockingQueue<>(this.namesrvConfig.getDefaultThreadPoolQueueCapacity());
+        //初始化处理broker请求的线程池，默认线程数为16
         this.defaultExecutor = new ThreadPoolExecutor(this.namesrvConfig.getDefaultThreadPoolNums(), this.namesrvConfig.getDefaultThreadPoolNums(), 1000 * 60, TimeUnit.MILLISECONDS, this.defaultThreadPoolQueue, new ThreadFactoryImpl("RemotingExecutorThread_")) {
             @Override
             protected <T> RunnableFuture<T> newTaskFor(final Runnable runnable, final T value) {
@@ -145,7 +174,9 @@ public class NamesrvController {
             }
         };
 
+        //初始化处理客户端请求的线程池队列数，默认50000
         this.clientRequestThreadPoolQueue = new LinkedBlockingQueue<>(this.namesrvConfig.getClientRequestThreadPoolQueueCapacity());
+        //初始化处理broker请求的线程池，默认线程数为8
         this.clientRequestExecutor = new ThreadPoolExecutor(this.namesrvConfig.getClientRequestThreadPoolNums(), this.namesrvConfig.getClientRequestThreadPoolNums(), 1000 * 60, TimeUnit.MILLISECONDS, this.clientRequestThreadPoolQueue, new ThreadFactoryImpl("ClientRequestExecutorThread_")) {
             @Override
             protected <T> RunnableFuture<T> newTaskFor(final Runnable runnable, final T value) {
@@ -213,15 +244,25 @@ public class NamesrvController {
         return slowTimeMills;
     }
 
+    /**
+     * 一、支持集群测试的情况下:只注册默认测试集群处理器
+     * 二、不支持集群测试的情况下：
+     * 1.注册客户端请求获取topic路由信息的处理器（每种客户端请求都对应一个请求码）
+     * 2.注册nameserver默认的处理器
+     *
+     * 注意：注册的处理器都将被存到Pair类型的对象中，处理器与线程池一一对应
+     */
     private void registerProcessor() {
-        if (namesrvConfig.isClusterTest()) {
 
+        if (namesrvConfig.isClusterTest()) {
+            //支持集群测试:只注册默认测试集群处理器
             this.remotingServer.registerDefaultProcessor(new ClusterTestRequestProcessor(this, namesrvConfig.getProductEnvName()), this.defaultExecutor);
         } else {
-            // Support get route info only temporarily
+            // Support get route info only temporarily  支持根据topic获取路由信息的请求
+            //注册客户端请求获取topic路由信息的处理器（每种客户端请求都对应一个请求码）
             ClientRequestProcessor clientRequestProcessor = new ClientRequestProcessor(this);
             this.remotingServer.registerProcessor(RequestCode.GET_ROUTEINFO_BY_TOPIC, clientRequestProcessor, this.clientRequestExecutor);
-
+            //注册nameserver默认的处理器
             this.remotingServer.registerDefaultProcessor(new DefaultRequestProcessor(this), this.defaultExecutor);
         }
     }

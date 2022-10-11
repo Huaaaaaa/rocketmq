@@ -68,14 +68,24 @@ import org.apache.rocketmq.remoting.exception.RemotingTimeoutException;
 import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 路由信息管理器
+ */
 public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
+    //默认的broker通道过期时间：2分钟
     private final static long DEFAULT_BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
+    //读写锁
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    //topic与队列关系表
     private final Map<String/* topic */, Map<String, QueueData>> topicQueueTable;
+    //broker元数据表
     private final Map<String/* brokerName */, BrokerData> brokerAddrTable;
+    //集群与broker关系表
     private final Map<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+    //broker地址信息与存活broker的关系表
     private final Map<BrokerAddrInfo/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+    //broker地址信息与过滤服务的关系表
     private final Map<BrokerAddrInfo/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
     private final Map<String/* topic */, Map<String/*brokerName*/, TopicQueueMappingInfo>> topicQueueMappingInfoTable;
 
@@ -765,15 +775,28 @@ public class RouteInfoManager {
         return null;
     }
 
+    /**
+     * 1.遍历broker地址信息与存活broker的关系表
+     * 2.判断最后一次发送心跳时间是否已超时（即是否超时未收到broker的心跳）
+     * 3.未收到心跳时关闭信道
+     * 4.并从broker元数据中获取brokerName和brokerId信息，封装成取消注册的请求体
+     * 5.将该请求体加入到队列unregistrationQueue中
+     */
     public void scanNotActiveBroker() {
         try {
             log.info("start scanNotActiveBroker");
+            //遍历存活的broker表
             for (Entry<BrokerAddrInfo, BrokerLiveInfo> next : this.brokerLiveTable.entrySet()) {
+                //获取该broker最后一次更新的时间：即broker向nameserver发送心跳的时间
                 long last = next.getValue().getLastUpdateTimestamp();
+                //获取发送心跳间隔：即每过timeout时间，broker向nameserver发送心跳
                 long timeoutMillis = next.getValue().getHeartbeatTimeoutMillis();
+                //如果上次心跳时间+心跳间隔<当前时间，说明在时间间隔内未收到最新的心跳
                 if ((last + timeoutMillis) < System.currentTimeMillis()) {
+                    //关闭与该broker的信道
                     RemotingUtil.closeChannel(next.getValue().getChannel());
                     log.warn("The broker channel expired, {} {}ms", next.getKey(), timeoutMillis);
+                    //销毁通信
                     this.onChannelDestroy(next.getKey());
                 }
             }
@@ -788,7 +811,9 @@ public class RouteInfoManager {
         if (brokerAddrInfo != null) {
             try {
                 try {
+                    //获取读锁：避免在多线程环境下unRegisterRequest中不是当前broker
                     this.lock.readLock().lockInterruptibly();
+                    //从broker元数据表中获取当前broker的name和id
                     needUnRegister = setupUnRegisterRequest(unRegisterRequest, brokerAddrInfo);
                 } finally {
                     this.lock.readLock().unlock();
@@ -799,6 +824,7 @@ public class RouteInfoManager {
         }
 
         if (needUnRegister) {
+            //提交取消注册请求：当前请求体会被加入到取消注册请求的队列unregistrationQueue中
             boolean result = this.submitUnRegisterBrokerRequest(unRegisterRequest);
             log.info("the broker's channel destroyed, submit the unregister request at once, " +
                 "broker info: {}, submit result: {}", unRegisterRequest, result);
@@ -843,15 +869,19 @@ public class RouteInfoManager {
         unRegisterRequest.setClusterName(brokerAddrInfo.getClusterName());
         unRegisterRequest.setBrokerAddr(brokerAddrInfo.getBrokerAddr());
 
+        //遍历broker元数据表
         for (Entry<String, BrokerData> stringBrokerDataEntry : this.brokerAddrTable.entrySet()) {
+            //获取broker元数据
             BrokerData brokerData = stringBrokerDataEntry.getValue();
+            //判断是否是同一个集群
             if (!brokerAddrInfo.getClusterName().equals(brokerData.getCluster())) {
                 continue;
             }
-
+            //遍历broker中的broker地址（同一组broker有着相同的brokerName和不同的brokerId）
             for (Entry<Long, String> entry : brokerData.getBrokerAddrs().entrySet()) {
                 Long brokerId = entry.getKey();
                 String brokerAddr = entry.getValue();
+                //将未发送心跳的broker设置到取消注册请求体中
                 if (brokerAddr.equals(brokerAddrInfo.getBrokerAddr())) {
                     unRegisterRequest.setBrokerName(brokerData.getBrokerName());
                     unRegisterRequest.setBrokerId(brokerId);
