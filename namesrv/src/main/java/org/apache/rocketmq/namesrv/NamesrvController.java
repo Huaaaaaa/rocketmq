@@ -16,7 +16,10 @@
  */
 package org.apache.rocketmq.namesrv;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -185,6 +188,14 @@ public class NamesrvController {
         };
     }
 
+    /**
+     * 初始化文件建监听服务
+     * 1.定义需要监听的文件：TLS服务器证书路径、TLS服务器秘钥路径、TLS服务器信任的证书路径
+     * 2.定义监听器逻辑：
+     * 1）当服务器信任的证书路径变更时，重新加载SSL内容
+     * 2）当TLS服务器证书路径和TLS服务器秘钥路径同时变更时，重新加载SSL内容
+     * 2.初始化文件监听服务（线程）：传入要监听的文件和监听器
+     */
     private void initiateSslContext() {
         if (TlsSystemConfig.tlsMode == TlsMode.DISABLED) {
             return;
@@ -267,26 +278,40 @@ public class NamesrvController {
         }
     }
 
+    /**
+     * 向netty服务器中注册ZoneRouteRPCHook实例
+     */
     private void initiateRpcHooks() {
         this.remotingServer.registerRPCHook(new ZoneRouteRPCHook());
     }
 
+    /**
+     * NameServerController启动逻辑
+     * 1.启动netty服务端
+     * 2.启动netty客户端
+     * 3.启动TLS证书文件监听线程
+     * 4.启动路由信息管理器:会执行注销broker的线程
+     * @throws Exception
+     */
     public void start() throws Exception {
+        //启动netty服务端
         this.remotingServer.start();
-
         // In test scenarios where it is up to OS to pick up an available port, set the listening port back to config
+        // 当操作系统选择了一个不可用的端口时，自动设置为配置文件中监听的端口
         if (0 == nettyServerConfig.getListenPort()) {
             nettyServerConfig.setListenPort(this.remotingServer.localListenPort());
         }
 
+        //启动netty客户端
         this.remotingClient.updateNameServerAddressList(Collections.singletonList(RemotingUtil.getLocalAddress()
             + ":" + nettyServerConfig.getListenPort()));
         this.remotingClient.start();
 
+        //启动TLS证书文件监听线程
         if (this.fileWatchService != null) {
             this.fileWatchService.start();
         }
-
+        //启动路由信息管理器:会执行注销broker的线程
         this.routeInfoManager.start();
     }
 

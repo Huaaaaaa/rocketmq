@@ -57,17 +57,22 @@ public class BatchUnregistrationService extends ServiceThread {
         return BatchUnregistrationService.class.getName();
     }
 
+    /**
+     * 启动线程时执行run方法
+     */
     @Override
     public void run() {
         while (!this.isStopped()) {
             try {
+                //获取队列头部元素
                 final UnRegisterBrokerRequestHeader request = unregistrationQueue.take();
                 Set<UnRegisterBrokerRequestHeader> unregistrationRequests = new HashSet<>();
+                //移除unregistrationQueue队列中所有的元素，并加入到unregistrationRequests集合中
                 unregistrationQueue.drainTo(unregistrationRequests);
 
-                // Add polled request
+                // Add polled request 将队头元素也加入其中（思考：为什么要这样繁琐呢？不能直接省去队头元素的出队和加入集合这两步吗？）
                 unregistrationRequests.add(request);
-
+                //将注销队列中的所有请求都传给注销接口
                 this.routeInfoManager.unRegisterBroker(unregistrationRequests);
             } catch (Throwable e) {
                 log.error("Handle unregister broker request failed", e);

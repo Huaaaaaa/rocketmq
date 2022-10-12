@@ -1,0 +1,223 @@
+@startuml
+<style>
+activityDiagram {
+  /'BackgroundColor #33668E
+  BorderColor #33668E
+  FontColor #888
+  FontName arial'/
+
+  diamond {
+    BackgroundColor #FF6833
+    FontColor black
+    FontName arial
+    FontSize 13
+  }
+  arrow {
+    FontColor red
+    FontName arial
+    FontSize 15
+  }
+  partition {
+    LineColor red
+    FontColor green
+    RoundCorner 10
+    /'BackgroundColor PeachPuff'/
+  }
+  note {
+    FontColor black
+    LineColor Navy
+    BackgroundColor yellow
+  }
+}
+</style>
+start
+:开始执行main方法;
+note right
+* 调用main0()方法
+* 调用controllerManagerMain()方法
+end note
+/'第一部分：执行main0方法'/
+partition "**<color:green><b>【main0()方法】**" {
+/'在main0方法中执行加载配置命令和配置文件，转化成配置对象的方法'/
+partition "**<color:green><b>一、parseCommandlineAndConfigFile(args)方法：将命令行和配置文件转成配置类对象**" {
+: 1.1 获取启动命令行commandLine;
+/'初始化各种配置'/
+if(commandLine==null) then(yes)
+stop
+else(no)
+:1.2 创建各种配置实例;
+note right
+* 创建NameServer服务端配置NamesrvConfig的实例
+* 创建Nety服务端配置nettyServerConfig的实例
+* 创建Netty客户端配置nettyClientConfig的实例
+* 设置nettyServerConfig中监听的端口为9876（nameserver的端口）
+* 创建NameServer控制器配置controllerConfig的实例
+end note
+endif
+/'获取命令行中nameserver的配置文件，-n 即configFile的路径'/
+if(启动命令行中包含c) then(yes)
+: 1.3 获取c指定的值;
+note right
+* 即nameserver的配置文件路径
+end note
+: 1.4 加載nameserver配置文件;
+: 1.5 將配置文件中的键值对设置到前面创建的配置实例中;
+note right
+* 设置namesrvConfig的属性
+* 设置nettyServerConfig的属性
+* 设置nettyClientConfig的属性
+* 设置controllerConfig的属性
+* namesrvConfig.setConfigStorePath(file)
+end note
+else(no)
+endif
+
+/'如果命令行中指定的了-p参数，则打印配置项'/
+if(启动命令行中包含p) then(yes)
+: 1.6 打印配置对象的属性信息;
+note right
+* 打印namesrvConfig的属性
+* 打印nettyServerConfig的属性
+* 打印nettyClientConfig的属性
+* 打印controllerConfig的属性
+end note
+else(no)
+endif
+
+if(null == namesrvConfig.getRocketmqHome()) then(yes)
+:直接退出;
+stop
+else(no)
+: 1.7 打印配置日志;
+stop
+endif
+}
+/'在main0方法中执行nameserver控制器的创建和启动方法'/
+partition "**<color:green><b>二、createAndStartNamesrvController()方法：创建并启动NameServerController**" {
+/'第一步：创建NamesrvController实例'/
+partition "**<color:green><b>第一步：创建NameServerController实例**"
+: 2.1 创建NamesrvController实例;
+note right
+--初始化NameServerController中的属性--
+* this.namesrvConfig = namesrvConfig;
+* this.nettyServerConfig = nettyServerConfig;
+* this.nettyClientConfig = nettyClientConfig;
+* this.kvConfigManager = new KVConfigManager(this);
+* this.brokerHousekeepingService = new BrokerHousekeepingService(this);
+* this.routeInfoManager = new RouteInfoManager(namesrvConfig, this);
+* this.configuration = new Configuration(LOGGER, this.namesrvConfig, this.nettyServerConfig);
+* this.configuration.setStorePathFromConfig(this.namesrvConfig, "configStorePath");
+end note
+: <color:red><b>2.2 用配文件中的属性替换configuration中的默认值;
+}
+/'第二步：初始化NameServerController实例'/
+partition "**<color:green><b>第二步：初始化NameServerController实例**"
+: 2.3 加载配置：loadConfig();
+note right
+* 1）获取user.home/namesrv下的kvconfig.json文件并解析内容
+* 2）当配置文件内容不为空时解析配置信息并加入配置表（HashMap）中
+end note
+: 2.4 初始化网络信息: initiateNetworkComponents();
+note right
+* 1）根据NettyServerConfig配置初始化NettyServer
+* 2）根据NettyClientConfig配置初始化NettyClient
+end note
+: 2.5 初始化线程池：initiateThreadExecutors();
+note right
+* 1）初始化处理broker请求的线程池（默认队列数10000，默认线程数16）
+* 2）初始化处理客户端请求的线程池（默认队列数50000，默认线程数8）
+end note
+: 2.6 注册处理器： registerProcessor();
+note right
+* 1）支持集群测试的情况下:只注册默认测试集群处理器
+* 2）不支持集群测试的情况下：
+  1>  注册客户端请求获取topic路由信息的处理器（每种客户端请求都对应一个请求码）
+  2>  注册nameserver默认的处理器
+--<color:red><b>注意：注册的处理器都将被存到Pair类型的对象中，处理器与线程池一一对应--
+end note
+: 2.7 启动定时任务：startScheduleService();
+note right
+* 1）每隔5秒执行一次扫描下线broker的任务
+----
+--扫描任务详情--
+1>遍历broker地址信息与存活broker的关系表
+2>判断最后一次发送心跳时间是否已超时（即是否超时未收到broker的心跳）
+3>未收到心跳时关闭信道
+4>并从broker元数据中获取brokerName和brokerId信息，封装成注销请求
+5>将注销请求加入到队列unregistrationQueue中
+----
+* 2）每隔10分钟打印一次配置表
+* 3) 每隔1秒打印一次线程池中的队列信息
+end note
+: 2.8 初始化SSL上下文： initiateSslContext();
+note right
+--初始化文件建监听服务--
+* 1）定义需要监听的文件：TLS服务器证书路径、TLS服务器秘钥路径、TLS服务器信任的证书路径
+* 2）定义监听器逻辑：
+* 1> 当服务器信任的证书路径变更时，重新加载SSL内容
+* 2> 当TLS服务器证书路径和TLS服务器秘钥路径同时变更时，重新加载SSL内容
+* 3）初始化文件监听服务（线程）：传入要监听的文件和监听器
+end note
+: 2.9 初始化RPC钩子方法:方便在RPC接口调用前后执行一些逻辑：initiateRpcHooks();
+note right
+* 向netty服务器中注册ZoneRouteRPCHook实例
+end note
+}
+
+/'第三步：启动NameServerController实例'/
+partition "**<color:green><b>第三步：启动NameServerController实例**"
+: 3.1 启动netty服务端;
+note right
+* 当操作系统选择了一个不可用的端口时，自动设置为配置文件中监听的端口
+--详情待定--
+end note
+: 3.2 启动netty客户端;
+note right
+--详情待定--
+end note
+: 3.3 启动TLS证书文件监听线程;
+note right
+--详情待定--
+end note
+: 3.4 启动路由信息管理器:会执行注销broker的线程;
+note right
+--注销broker:遍历注销请求集合，执行如下逻辑--
+* 1.从注销请求体中获取brokerName和clusterName(要注销的brokerName和其所属集群)
+* 2.从注销请求体中获取要主要的broker实例的IP地址,与clusteName封装成BrokerAddrInfo实例brokerAddrInfo
+* 3.从broker存活表brokerLiveTable中移除要注销的broker地址信息brokerAddrInfo
+* 4.从过滤服务表filterServerTable中移除要注销的broker地址信息brokerAddrInfo
+* 5.从元数据全量表中获取brokerName对应的Broker元数据信息brokerData
+----
+* 6.当元数据信息brokerData不为空时执行如下逻辑：
+* 6.1 Broker元数据信息brokerData中的broker实例集合（brokerId->brokerIp）不为空且要注销的brokerId为最小的Broker时：
+      -设置isMinBrokerIdChanged = true
+* 6.2 根据brokerId从元数据表中移除已注销的broker：addr为已下线的broker实例IP
+* 6.3 移除下线的broker实例后如果实例集合为空
+      -才从元数据表中移除该brokerName
+      -设置removeBrokerName = true;
+* 6.4 移除下线的broker实例后如果实例集合不为空且设置isMinBrokerIdChanged=true时
+      -将该brokerName对应的broker元数据加入到需要修改状态的表中
+----
+* 7.当removeBrokerName = true时执行如下逻辑：
+* 7.1 从集群表中获取该broker所在集群中的brokerName集合
+* 7.2 从集群的brokerName组中移除已注销的brokerName（整个broker组都被移除）
+* 7.3 移除之后如果该集群中不存在任何broker，则从集群表中移除该集群
+* 7.4 将该brokerName加入到已移除的集合removedBroker中，意味着该broker组中没有实例
+----
+* 8.当removeBrokerName = false时执行如下逻辑：
+* 8.1 将该brokerName加入到已减少的集合reducedBroker中，意味着该broker组中还有实例
+----
+* 9.清理已移除broker对应的topic信息
+* 9.1 已移除的brokerName,需要从topic的队列表中删除该brokerName对应的队列
+* 9.2 当topic中的队列为空时，需要移除topic
+* 9.3 已减少实例的brokerName，需要根据剩余broker是否具有升级为master的全新执行升级操作
+----
+* 10.如果已最小brokerId变更通知的配置且减少会移除的是brokerId最小的broker，需要执行通知操作
+end note
+}
+}
+}
+partition "**<color:#green><b>controllerManagerMain()方法**" {
+}
+stop
+@enduml

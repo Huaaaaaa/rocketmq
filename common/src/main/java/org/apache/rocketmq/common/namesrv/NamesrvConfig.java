@@ -99,6 +99,7 @@ public class NamesrvConfig {
 
     /**
      * Is startup the controller in this name-srv
+     * 是否在当前nameserver中启动controller
      */
     private boolean enableControllerInNamesrv = false;
 
