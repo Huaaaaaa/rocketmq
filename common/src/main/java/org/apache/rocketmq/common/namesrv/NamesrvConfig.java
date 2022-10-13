@@ -99,7 +99,7 @@ public class NamesrvConfig {
 
     /**
      * Is startup the controller in this name-srv
-     * 是否在当前nameserver中启动controller
+     * 是否在当前nameserver中启动controller：DLedger Controller以插件的模式内嵌到NameServer进行部署
      */
     private boolean enableControllerInNamesrv = false;
 

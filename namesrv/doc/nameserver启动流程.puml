@@ -18,7 +18,7 @@ activityDiagram {
     FontSize 15
   }
   partition {
-    LineColor red
+    LineColor green
     FontColor green
     RoundCorner 10
     /'BackgroundColor PeachPuff'/
@@ -217,7 +217,13 @@ end note
 }
 }
 }
-partition "**<color:#green><b>controllerManagerMain()方法**" {
+partition "**<color:#green><b>三、controllerManagerMain()方法**" {
+if(enableControllerInNamesrv=true) then(yes)
+: 执行createAndStartControllerManager()方法;
+note right
+* 该方法是在5.0版本中新增的功能，详情待定
+end note
+endif
 }
 stop
 @enduml
