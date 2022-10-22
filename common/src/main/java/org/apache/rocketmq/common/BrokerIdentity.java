@@ -37,6 +37,9 @@ public class BrokerIdentity {
     private String brokerName = localHostName();
     @ImportantField
     private String brokerClusterName = DEFAULT_CLUSTER_NAME;
+    /**
+     * brokerID 0表示主节点 大于0表示从节点，默认为主节点
+     */
     @ImportantField
     private volatile long brokerId = MixAll.MASTER_ID;
 

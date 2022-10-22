@@ -308,19 +308,36 @@ public class DefaultMessageStore implements MessageStore {
 
     /**
      * @throws Exception
+     * 启动消息存储服务：broker启动时，是如何从文件中恢复的
      */
     @Override
     public void start() throws Exception {
+        /**
+         * 条件判断：
+         * 1.enableDLegerCommitLog：默认为false
+         * 2.duplicationEnable：默认为false
+         * 判断结果：
+         * 满足条件，执行HaService的初始化
+         */
         if (!messageStoreConfig.isEnableDLegerCommitLog() && !this.messageStoreConfig.isDuplicationEnable()) {
             this.haService.init(this);
         }
 
+        /**
+         * 条件判断：
+         * 1.transientStorePoolEnable：默认为false
+         * 2.BrokerRole.SLAVE != getBrokerRole()：只有主节点时为true
+         * 判断结果：
+         * 不满足条件，不执行transientStorePool.init()
+         */
         if (messageStoreConfig.isTransientStorePoolEnable()) {
             this.transientStorePool.init();
         }
 
+        //启动分配映射文件的线程:没有实际逻辑
         this.allocateMappedFileService.start();
 
+        //启动索引服务：没有实际逻辑
         this.indexService.start();
 
         lock = lockFile.getChannel().tryLock(0, 1, false);

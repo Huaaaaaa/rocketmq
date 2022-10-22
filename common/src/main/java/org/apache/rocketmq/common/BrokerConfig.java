@@ -28,46 +28,97 @@ import org.apache.rocketmq.remoting.common.RemotingUtil;
 public class BrokerConfig extends BrokerIdentity {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
+    /**
+     * broker配置文件路径
+     */
     private String brokerConfigPath = null;
 
+    /**
+     * rocketmq路径
+     */
     private String rocketmqHome = System.getProperty(MixAll.ROCKETMQ_HOME_PROPERTY, System.getenv(MixAll.ROCKETMQ_HOME_ENV));
+    /**
+     * NameServer地址
+     */
     @ImportantField
     private String namesrvAddr = System.getProperty(MixAll.NAMESRV_ADDR_PROPERTY, System.getenv(MixAll.NAMESRV_ADDR_ENV));
 
     /**
-     * Listen port for single broker
+     * Listen port for single broker 单个broker监听的端口
      */
     @ImportantField
     private int listenPort = 6888;
 
+    /**
+     * 	Broker服务地址
+     */
     @ImportantField
     private String brokerIP1 = RemotingUtil.getLocalAddress();
+    /**
+     * BrokerHAIP地址，供slave同步消息的地址
+     */
     private String brokerIP2 = RemotingUtil.getLocalAddress();
 
+    /**
+     * broker的权限，默认为可读可写
+     */
     private int brokerPermission = PermName.PERM_READ | PermName.PERM_WRITE;
+    /**
+     * 主体在一个broker上创建队列数量（分区）
+     */
     private int defaultTopicQueueNums = 8;
+    /**
+     * 是否自动创建topic，默认为true
+     */
     @ImportantField
     private boolean autoCreateTopicEnable = true;
 
+    /**
+     * 集群名称是否可用在主题使用
+     */
     private boolean clusterTopicEnable = true;
 
+    /**
+     *  broker名称是否可以用做主体使用
+     */
     private boolean brokerTopicEnable = true;
+    /**
+     * 是否自动创建消费组
+     */
     @ImportantField
     private boolean autoCreateSubscriptionGroup = true;
+    /**
+     * 消息存储插件
+     */
     private String messageStorePlugIn = "";
 
+    /**
+     * CPU核数
+     */
     private static final int PROCESSOR_NUMBER = Runtime.getRuntime().availableProcessors();
+    /**
+     * 消息追踪topic名称
+     */
     @ImportantField
     private String msgTraceTopicName = TopicValidator.RMQ_SYS_TRACE_TOPIC;
+    /**
+     * 是否开启消息追踪
+     */
     @ImportantField
     private boolean traceTopicEnable = false;
     /**
-     * thread numbers for send message thread pool.
+     * thread numbers for send message thread pool. 发送消息的线程池个数
      */
     private int sendMessageThreadPoolNums = Math.min(PROCESSOR_NUMBER, 4);
     private int putMessageFutureThreadPoolNums = Math.min(PROCESSOR_NUMBER, 4);
+    /**
+     * 默认拉取消息的线程池个数
+     */
     private int pullMessageThreadPoolNums = 16 + PROCESSOR_NUMBER * 2;
     private int litePullMessageThreadPoolNums = 16 + PROCESSOR_NUMBER * 2;
+    /**
+     * 响应消息的线程池个数
+     */
     private int ackMessageThreadPoolNums = 3;
     private int processReplyMessageThreadPoolNums = 16 + PROCESSOR_NUMBER * 2;
     private int queryMessageThreadPoolNums = 8 + PROCESSOR_NUMBER;
@@ -84,12 +135,21 @@ public class BrokerConfig extends BrokerIdentity {
     private int endTransactionThreadPoolNums = Math.max(8 + PROCESSOR_NUMBER * 2,
             sendMessageThreadPoolNums * 4);
 
+    /**
+     * 持久化消息消费进度 consumerOffse.json文件的频率ms
+     */
     private int flushConsumerOffsetInterval = 1000 * 5;
 
+    /**
+     * fushConsumeQueueLeastPages直接刷盘
+     */
     private int flushConsumerOffsetHistoryInterval = 1000 * 60;
 
     @ImportantField
     private boolean rejectTransactionMessage = false;
+    /**
+     * 是否支持从服务器获取nameServer
+     */
     @ImportantField
     private boolean fetchNamesrvAddrByAddressServer = false;
     private int sendThreadPoolQueueCapacity = 10000;
@@ -106,14 +166,29 @@ public class BrokerConfig extends BrokerIdentity {
     private int adminBrokerThreadPoolQueueCapacity = 10000;
     private int loadBalanceThreadPoolQueueCapacity = 100000;
 
+    /**
+     * broker服务器过滤服务器数量
+     */
     private int filterServerNums = 0;
 
+    /**
+     * 是否开启长轮询
+     */
     private boolean longPollingEnable = true;
 
+    /**
+     * 短轮询时长
+     */
     private long shortPollingTimeMills = 1000;
 
+    /**
+     * 是否通知消费者id变更已开启
+     */
     private boolean notifyConsumerIdsChangedEnable = true;
 
+    /**
+     * 高速模式
+     */
     private boolean highSpeedMode = false;
 
     private int commercialBaseCount = 1;
@@ -133,6 +208,7 @@ public class BrokerConfig extends BrokerIdentity {
 
     private boolean slaveReadEnable = false;
 
+    //如果消费组消息消费堆积是否禁用该消费组继续消费消息
     private boolean disableConsumeIfConsumerReadSlowly = false;
     private long consumerFallbehindThreshold = 1024L * 1024 * 1024 * 16;
 
@@ -177,17 +253,20 @@ public class BrokerConfig extends BrokerIdentity {
     /**
      * This configurable item defines interval of topics registration of broker to name server. Allowing values are
      * between 10,000 and 60,000 milliseconds.
+     * broker向nameserver同步topic信息的时间间隔，默认30秒
      */
     private int registerNameServerPeriod = 1000 * 30;
 
     /**
      * the interval to send heartbeat to name server for liveness detection.
+     * broker发送心跳的间隔，默认1秒
      */
     private int brokerHeartbeatInterval = 1000;
 
     /**
      * How long the broker will be considered as inactive by nameserver since last heartbeat. Effective only if
      * enableSlaveActingMaster is true
+     * 上一次心跳与broker被nameserver当做非活跃处理的时间间隔，只有在enableSlaveActingMaster配置为true才生效
      */
     private long brokerNotActiveTimeoutMillis = 10 * 1000;
 
@@ -217,6 +296,7 @@ public class BrokerConfig extends BrokerIdentity {
 
     /**
      * the interval of pulling topic information from the named server
+     * 从nameserver上拉取topic信息的时间间隔
      */
     private long loadBalancePollNameServerInterval = 1000 * 30;
 
@@ -296,7 +376,8 @@ public class BrokerConfig extends BrokerIdentity {
     private boolean compatibleWithOldNameSrv = true;
 
     /**
-     * Is startup controller mode, which support auto switch broker's role.
+     * Is startup controller mode, which support auto switch broker's role.、
+     * 是否使用controller模式启动，默认false。这种方式支持自动切换broker的角色
      */
     private boolean enableControllerMode = false;
 

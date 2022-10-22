@@ -52,6 +52,11 @@ public class NamesrvStartup {
     private static NettyClientConfig nettyClientConfig = null;
     private static ControllerConfig controllerConfig = null;
 
+    /**
+     * 启动nameserver:
+     * 监听端口，等待Broker、Producer、Consumer连接，相当于一个路由控制中心
+     * @param args
+     */
     public static void main(String[] args) {
         main0(args);
         controllerManagerMain();

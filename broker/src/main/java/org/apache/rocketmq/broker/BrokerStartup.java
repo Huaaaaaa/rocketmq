@@ -23,6 +23,11 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.JSONPObject;
+import com.google.gson.JsonElement;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
@@ -51,13 +56,24 @@ public class BrokerStartup {
     public static Properties properties = null;
     public static CommandLine commandLine = null;
     public static String configFile = null;
-    public static InternalLogger log;
+    public static InternalLogger log =InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     public static final SystemConfigFileHelper CONFIG_FILE_HELPER = new SystemConfigFileHelper();
 
+    /**
+     * 启动broker:
+     * 1.与所有NameServer保持长链接，定时发送心跳包（心跳包中包含当前Broker信息以及存储的所有Topic信息）
+     * 2.注册成功后，NameServer集群中就有Topic跟Broker的映射关系
+     * @param args
+     */
     public static void main(String[] args) {
         start(createBrokerController(args));
     }
 
+    /**
+     * 通过controller的方式启动Broker
+     * @param controller
+     * @return
+     */
     public static BrokerController start(BrokerController controller) {
         try {
 
@@ -87,25 +103,48 @@ public class BrokerStartup {
         }
     }
 
+    /**
+     * 创建BrokerController
+     * 第一步：获取启动时的命令行参数
+     * 第二步：初始化各种配置类
+     * 第三步：解析命令行中的参数值，获取配置文件，并用配置文件中的值替换配置类中的默认值
+     * 第四步：打印各种配置信息
+     * 第五步：创建BrokerController实例
+     * 第六步：初始化controller
+     * 第七步：添加钩子方法
+     * @param args
+     * @return
+     */
     public static BrokerController createBrokerController(String[] args) {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
 
         try {
+            //第一步：获取启动时的命令行参数
             //PackageConflictDetect.detectFastjson();
             Options options = ServerUtil.buildCommandlineOptions(new Options());
+            //options={"options":[{"args":-1,"description":"Print help","id":104,"longOpt":"help","opt":"h","required":false,"type":"java.lang.String","valueSeparator":"\u0000","valuesList":[]},{"args":1,"description":"Name server address list, eg: '192.168.0.1:9876;192.168.0.2:9876'","id":110,"longOpt":"namesrvAddr","opt":"n","required":false,"type":"java.lang.String","valueSeparator":"\u0000","valuesList":[]}],"requiredOptions":[]}
+            log.info("createBrokerController options={}",null!=options? JSONObject.toJSONString(options):null);
+            //commandLine={"argList":[],"args":[],"options":[]}
             commandLine = ServerUtil.parseCmdLine("mqbroker", args, buildCommandlineOptions(options),
                 new DefaultParser());
+            log.info("createBrokerController commandLine={}",null!=commandLine? JSONObject.toJSONString(commandLine):null);
             if (null == commandLine) {
                 System.exit(-1);
             }
 
+            //第二步：初始化各种配置类
+            //创建broker的配置实例
             final BrokerConfig brokerConfig = new BrokerConfig();
+            //netty服务端配置实例
             final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+            //netty客户端配置实例
             final NettyClientConfig nettyClientConfig = new NettyClientConfig();
 
             nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
                 String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+            //netty服务器监听的端口，默认是10911
             nettyServerConfig.setListenPort(10911);
+            //消息存储配置实例
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
 
             if (BrokerRole.SLAVE == messageStoreConfig.getBrokerRole()) {
@@ -113,6 +152,7 @@ public class BrokerStartup {
                 messageStoreConfig.setAccessMessageInMemoryMaxRatio(ratio);
             }
 
+            //第三步：解析命令行中的参数值，获取配置文件，并用配置文件中的值替换配置类中的默认值
             if (commandLine.hasOption('c')) {
                 String file = commandLine.getOptionValue('c');
                 if (file != null) {
@@ -133,6 +173,7 @@ public class BrokerStartup {
 
             MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), brokerConfig);
 
+            //当broker的配置中rocketmq的路径为空时退出
             if (null == brokerConfig.getRocketmqHome()) {
                 System.out.printf("Please set the %s variable in your environment to match the location of the RocketMQ installation", MixAll.ROCKETMQ_HOME_ENV);
                 System.exit(-2);
@@ -189,7 +230,9 @@ public class BrokerStartup {
             }
             configurator.doConfigure(brokerConfig.getRocketmqHome() + "/conf/logback_broker.xml");
 
+            //第四步：打印各种配置信息
             if (commandLine.hasOption('p')) {
+                //在控制台打印配置详情
                 InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.BROKER_CONSOLE_NAME);
                 MixAll.printObjectProperties(console, brokerConfig);
                 MixAll.printObjectProperties(console, nettyServerConfig);
@@ -197,6 +240,7 @@ public class BrokerStartup {
                 MixAll.printObjectProperties(console, messageStoreConfig);
                 System.exit(0);
             } else if (commandLine.hasOption('m')) {
+                //在控制台只打印重要的配置信息
                 InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.BROKER_CONSOLE_NAME);
                 MixAll.printObjectProperties(console, brokerConfig, true);
                 MixAll.printObjectProperties(console, nettyServerConfig, true);
@@ -206,6 +250,7 @@ public class BrokerStartup {
             }
 
             log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+            //在日志中打印配置信息
             MixAll.printObjectProperties(log, brokerConfig);
             MixAll.printObjectProperties(log, nettyServerConfig);
             MixAll.printObjectProperties(log, nettyClientConfig);
@@ -213,20 +258,23 @@ public class BrokerStartup {
 
             brokerConfig.setInBrokerContainer(false);
 
+            //第五步：创建BrokerController实例
             final BrokerController controller = new BrokerController(
                 brokerConfig,
                 nettyServerConfig,
                 nettyClientConfig,
                 messageStoreConfig);
-            // remember all configs to prevent discard
+            // remember all configs to prevent discard  使用配置文件中的配置进行覆盖已有配置
             controller.getConfiguration().registerConfig(properties);
 
+            //第六步：初始化controller
             boolean initResult = controller.initialize();
             if (!initResult) {
                 controller.shutdown();
                 System.exit(-3);
             }
 
+            //第七步：添加钩子方法
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 private volatile boolean hasShutdown = false;
                 private AtomicInteger shutdownTimes = new AtomicInteger(0);

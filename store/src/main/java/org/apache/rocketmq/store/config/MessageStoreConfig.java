@@ -26,11 +26,11 @@ public class MessageStoreConfig {
 
     public static final String MULTI_PATH_SPLITTER = System.getProperty("rocketmq.broker.multiPathSplitter", ",");
 
-    //The root directory in which the log data is kept
+    //The root directory in which the log data is kept 消息存储的根路径
     @ImportantField
     private String storePathRootDir = System.getProperty("user.home") + File.separator + "store";
 
-    //The directory in which the commitlog is kept
+    //The directory in which the commitlog is kept 提交日志存储的根路径
     @ImportantField
     private String storePathCommitLog = null;
 
